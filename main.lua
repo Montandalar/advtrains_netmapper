@@ -1,0 +1,230 @@
+-- advtrains track map generator
+-- Usage:...
+
+-- Viewport maximum coordinate in all directions
+local maxc = 5000
+
+-- embed an image called "world.png"
+local wimg = false
+-- image file resolution (not world resolution!)
+local wimresx = 3000
+local wimresy = 3000
+-- one pixel is ... nodes
+local wimscale = 4
+
+
+
+--Constant for maximum connection value/division of the circle
+AT_CMAX = 16
+
+advtrains = {}
+minetest = {}
+core = minetest
+
+--table for track nodes/connections
+trackconns = {}
+
+-- math library seems to be missing this function
+math.hypot = function(a,b) return math.sqrt(a*a + b*b) end
+
+-- need to declare this for trackdefs
+function attrans(str) return str end
+
+-- pos to string
+local function pts(pos)
+	return pos.x .. "," .. pos.y .. "," .. pos.z
+end
+
+--Advtrains dump (special treatment of pos and sigd)
+function atdump(t, intend)
+	local str
+	if type(t)=="table" then
+		if t.x and t.y and t.z then
+			str=minetest.pos_to_string(t)
+		elseif t.p and t.s then -- interlocking sigd
+			str="S["..minetest.pos_to_string(t.p).."/"..t.s.."]"
+		else
+			str="{"
+			local intd = (intend or "") .. "  "
+			for k,v in pairs(t) do
+				if type(k)~="string" or not string.match(k, "^path[_]?") then
+					-- do not print anything path-related
+					str = str .. "\n" .. intd .. atdump(k, intd) .. " = " ..atdump(v, intd)
+				end
+			end
+			str = str .. "\n" .. (intend or "") .. "}"
+		end
+	elseif type(t)=="boolean" then
+		if t then
+			str="true"
+		else
+			str="false"
+		end
+	elseif type(t)=="function" then
+		str="<function>"
+	elseif type(t)=="userdata" then
+		str="<userdata>"
+	else
+		str=""..t
+	end
+	return str
+end
+
+dofile("vector.lua")
+dofile("serialize.lua")
+dofile("helpers.lua")
+dofile("tracks.lua")
+dofile("track_defs.lua")
+
+dofile("nodedb.lua")
+
+
+-- Load saves
+local file, err = io.open("advtrains", "r")
+local tbl = minetest.deserialize(file:read("*a"))
+if type(tbl) ~= "table" then
+	error("not a table")
+end
+if tbl.version then
+	
+	advtrains.ndb.load_data(tbl.ndb)
+	
+else
+	error("Incompatible save format!")
+end
+file:close()
+
+-- open svg file
+
+local svgfile = io.open("out.svg", "w")
+
+svgfile:write([[
+<?xml version="1.0" standalone="no" ?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN"
+  "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
+<svg width="1024" height="800" xmlns="http://www.w3.org/2000/svg"
+  xmlns:xlink="http://www.w3.org/1999/xlink" ]])
+
+
+svgfile:write('viewBox="'..(-maxc)..' '..(-maxc)..' '..(2*maxc)..' '..(2*maxc)..'" >')
+
+
+svgfile:write([[
+<circle cx="0" cy="0" r="2" stroke="red" stroke-width="1" />
+]])
+
+if wimg then
+	local wimx = -(wimresx*wimscale/2)
+	local wimy = -(wimresy*wimscale/2)
+	local wimw = wimresx*wimscale
+	local wimh = wimresy*wimscale
+	
+	svgfile:write('<image xlink:href="world.png" x="'..wimx..'" y="'..wimy..'" height="'..wimh..'px" width="'..wimw..'px"/>')
+end
+
+local function writec(text)
+	print(text)
+	svgfile:write("<!-- " .. text .. " -->\n")
+end
+
+
+-- everything set up. Start generating an SVG
+-- All nodes that have been fit into a polyline are removed from the NDB, in order to not draw them again.
+
+-- "Restart points" for the breadth-first traverser (set when more than 2 conns present)
+-- {pos = <position>, connid = <int>, conn = <conndef>}
+-- Note that the node at "pos" is already deleted from the NDB at the time of recall, therefore "conn" is specified
+local bfs_rsp = {}
+
+
+-- Points of the current polyline. Inserted as xyz vectors, maybe we'll use the y value one day
+local current_polyline = {}
+
+-- Traverser function from interlocking, highly modified
+local function gen_rsp_polyline(rsp)
+
+	-- trick a bit
+	local pos, connid, conns = rsp.pos, 1, {rsp.conn}
+	current_polyline[#current_polyline+1] = pos
+	
+	while true do
+		local adj_pos, adj_connid, conn_idx, nextrail_y, next_conns = advtrains.get_adjacent_rail(pos, conns, connid)
+		if not adj_pos then
+			return
+		end
+		-- continue traversing
+		local conn_mainbranch
+		for nconnid, nconn in ipairs(next_conns) do
+			if adj_connid ~= nconnid then
+				if not conn_mainbranch then
+					--use the first one found to continue
+					conn_mainbranch = nconnid
+					--writec(nconnid.." nconn mainbranch")
+				else
+					-- insert bfs reminders for other conns
+					table.insert(bfs_rsp, {pos = adj_pos, connid = nconnid, conn = nconn})
+					--writec(nconnid.." nconn bfs")
+				end
+			end
+		end
+		
+		-- save in polyline and delete from ndb
+		--writec("Saved pos: "..pts(adj_pos).." mainbranch cont "..conn_mainbranch.." nextconns "..atdump(next_conns))
+		current_polyline[#current_polyline+1] = adj_pos
+		advtrains.ndb.clear(adj_pos)
+		
+		pos, connid, conns = adj_pos, conn_mainbranch, next_conns
+		
+	end
+end
+
+
+local function polyline_write(pl)
+	local str = {'<polyline style="fill:none;stroke:black;stroke-width:1" points="'}
+	
+	local i
+	local e
+	local lastldir = {x=0, y=0}
+	for i=1,#pl do
+		e = pl[i]
+		-- Note that we mirror y, so positive z is up
+		table.insert(str, e.x .. "," .. -(e.z) .. " ")
+	end
+	
+	table.insert(str, '" />\n')
+	
+	svgfile:write(table.concat(str))
+end
+
+
+-- while there are entries in the nodedb
+-- 1. find a starting point
+	local stpos, conns = advtrains.ndb.mapper_find_starting_point()
+while stpos do
+	
+	writec("Restart at position "..pts(stpos))
+	for connid, conn in ipairs(conns) do
+		table.insert(bfs_rsp, {pos = stpos, connid = connid, conn = conn})
+	end
+	advtrains.ndb.clear(stpos)
+	
+	-- 2. while there are BFS entries
+	while #bfs_rsp > 0 do
+		-- make polylines
+		local current_rsp = bfs_rsp[#bfs_rsp]
+		bfs_rsp[#bfs_rsp] = nil
+		--print("Starting polyline at "..pts(current_rsp.pos).."/"..current_rsp.connid)
+		
+		
+		current_polyline = {}
+		
+		gen_rsp_polyline(current_rsp)
+		
+		polyline_write(current_polyline)
+	end
+	stpos, conns = advtrains.ndb.mapper_find_starting_point()
+end
+
+svgfile:write("</svg>")
+svgfile:close()
+
