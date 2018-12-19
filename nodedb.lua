@@ -1,6 +1,7 @@
 --nodedb.lua
 --database of all nodes that have 'save_in_at_nodedb' field set to true in node definition
 
+ndb_nodes_notrack = 0
 
 --serialization format:
 --(2byte z) (2byte y) (2byte x) (2byte contentid)
@@ -75,6 +76,7 @@ function ndb.load_data(data)
 			cid=file:read(2)
 		end
 		print("nodedb: read", cnt, "nodes.")
+		ndb_nodes_total = cnt
 		file:close()
 	end
 end
@@ -153,6 +155,7 @@ function ndb.mapper_find_starting_point()
 				else
 					-- this is a signal or something similar, ignore.
 					tx[z]=nil
+					ndb_nodes_notrack = ndb_nodes_notrack + 1
 				end
 			end
 		end

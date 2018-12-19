@@ -5,7 +5,7 @@
 local maxc = 5000
 
 -- embed an image called "world.png"
-local wimg = false
+local wimg = true
 -- image file resolution (not world resolution!)
 local wimresx = 3000
 local wimresy = 3000
@@ -124,7 +124,7 @@ if wimg then
 end
 
 local function writec(text)
-	print(text)
+	--print("\n"..text)
 	svgfile:write("<!-- " .. text .. " -->\n")
 end
 
@@ -137,6 +137,7 @@ end
 -- Note that the node at "pos" is already deleted from the NDB at the time of recall, therefore "conn" is specified
 local bfs_rsp = {}
 
+local ndb_nodes_handled = 0
 
 -- Points of the current polyline. Inserted as xyz vectors, maybe we'll use the y value one day
 local current_polyline = {}
@@ -173,12 +174,14 @@ local function gen_rsp_polyline(rsp)
 		--writec("Saved pos: "..pts(adj_pos).." mainbranch cont "..conn_mainbranch.." nextconns "..atdump(next_conns))
 		current_polyline[#current_polyline+1] = adj_pos
 		advtrains.ndb.clear(adj_pos)
+		ndb_nodes_handled = ndb_nodes_handled + 1
 		
 		pos, connid, conns = adj_pos, conn_mainbranch, next_conns
 		
 	end
 end
 
+plcnt = 0
 
 local function polyline_write(pl)
 	local str = {'<polyline style="fill:none;stroke:black;stroke-width:1" points="'}
@@ -195,6 +198,7 @@ local function polyline_write(pl)
 	table.insert(str, '" />\n')
 	
 	svgfile:write(table.concat(str))
+	plcnt = plcnt + 1
 end
 
 
@@ -222,6 +226,8 @@ while stpos do
 		gen_rsp_polyline(current_rsp)
 		
 		polyline_write(current_polyline)
+		
+		io.write("Progress ", ndb_nodes_handled, "+", ndb_nodes_notrack, "/", ndb_nodes_total, "=", math.floor(((ndb_nodes_handled+ndb_nodes_notrack)/ndb_nodes_total)*100), "%\r")
 	end
 	stpos, conns = advtrains.ndb.mapper_find_starting_point()
 end
@@ -229,3 +235,4 @@ end
 svgfile:write("</svg>")
 svgfile:close()
 
+print("\nWrote",plcnt,"polylines. Processed", ndb_nodes_handled, "track,",ndb_nodes_notrack, "non-track nodes out of", ndb_nodes_total)
