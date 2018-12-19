@@ -1,5 +1,5 @@
 -- advtrains track map generator
--- Usage:...
+-- Usage: lua main.lua path/to/world
 
 -- Viewport maximum coordinate in all directions
 local maxc = 5000
@@ -12,6 +12,7 @@ local wimresy = 3000
 -- one pixel is ... nodes
 local wimscale = 4
 
+datapath = (arg[1] or "").."/"
 
 
 --Constant for maximum connection value/division of the circle
@@ -80,7 +81,7 @@ dofile("nodedb.lua")
 
 
 -- Load saves
-local file, err = io.open("advtrains", "r")
+local file, err = io.open(datapath.."advtrains", "r")
 local tbl = minetest.deserialize(file:read("*a"))
 if type(tbl) ~= "table" then
 	error("not a table")
@@ -96,7 +97,7 @@ file:close()
 
 -- open svg file
 
-local svgfile = io.open("out.svg", "w")
+local svgfile = io.open(datapath.."out.svg", "w")
 
 svgfile:write([[
 <?xml version="1.0" standalone="no" ?>

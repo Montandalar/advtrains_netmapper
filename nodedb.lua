@@ -57,7 +57,7 @@ local path="advtrains_ndb2"
 --nodeids get loaded by advtrains init.lua and passed here
 function ndb.load_data(data)
 	ndb_nodeids = data and data.nodeids or {}
-	local file, err = io.open(path, "rb")
+	local file, err = io.open(datapath..path, "rb")
 	if not file then
 		print("Couldn't load the node database: ", err or "Unknown Error")
 	else
