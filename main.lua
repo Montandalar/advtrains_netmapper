@@ -17,10 +17,12 @@ local wimscale = 4
 local drminy = -30
 -- Color of min y level
 local colminy = {r=0, g=0, b=255}
+-- Intermediate color
+local colmedy = {r=255, g=0, b=0}
 -- Maximum y level drawn
-local drmaxy = 70
+local drmaxy = 80
 -- Color of max y level
-local colmaxy = {r=255, g=0, b=0}
+local colmaxy = {r=255, g=255, b=0}
 
 
 datapath = (arg[1] or "").."/"
@@ -163,6 +165,8 @@ local function gen_rsp_polyline(rsp)
 	while true do
 		local adj_pos, adj_connid, conn_idx, nextrail_y, next_conns = advtrains.get_adjacent_rail(pos, conns, connid)
 		if not adj_pos then
+			-- proceed one more node, for seamless turnout transitions
+			current_polyline[#current_polyline+1] = advtrains.pos_add_dir(pos, conns[connid].c)
 			return
 		end
 		-- continue traversing
@@ -208,11 +212,20 @@ end
 
 local function pl_header(fac)
 	
-	local color = {
-		r = colminy.r + (colmaxy.r-colminy.r)*fac,
-		g = colminy.g + (colmaxy.g-colminy.g)*fac,
-		b = colminy.b + (colmaxy.b-colminy.b)*fac,
-	}
+	local color
+	if fac<0.5 then
+		color = {
+			r = colminy.r + (colmedy.r-colminy.r)*2*fac,
+			g = colminy.g + (colmedy.g-colminy.g)*2*fac,
+			b = colminy.b + (colmedy.b-colminy.b)*2*fac,
+		}
+	else
+		color = {
+			r = colmedy.r + (colmaxy.r-colmedy.r)*(2*fac-1),
+			g = colmedy.g + (colmaxy.g-colmedy.g)*(2*fac-1),
+			b = colmedy.b + (colmaxy.b-colmedy.b)*(2*fac-1),
+		}
+	end
 	
 	local c = hexcolor(color)
 	return '<polyline style="fill:none;stroke:'..c..';stroke-width:1" points="'
