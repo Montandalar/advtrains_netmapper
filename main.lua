@@ -233,7 +233,11 @@ end
 
 local function polyline_write(pl)
 	local p1y = cfactor(pl[1].y)
-	local str = {pl_header(p1y)}
+	local str = {}
+	
+	if p1y <= 1 and p1y >= 0 then
+		table.insert(str, pl_header(p1y))
+	end
 	
 	local i
 	local e
@@ -260,9 +264,9 @@ local function polyline_write(pl)
 		end
 		lastcf = cf
 	end
-	
-	table.insert(str, '" />\n')
-	
+	if lastcf <= 1 and lastcf >= 0 then
+		table.insert(str, '" />\n')
+	end
 	svgfile:write(table.concat(str))
 	plcnt = plcnt + 1
 end
