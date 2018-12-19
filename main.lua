@@ -5,12 +5,23 @@
 local maxc = 5000
 
 -- embed an image called "world.png"
-local wimg = true
+local wimg = false
 -- image file resolution (not world resolution!)
 local wimresx = 3000
 local wimresy = 3000
 -- one pixel is ... nodes
 local wimscale = 4
+
+-- y ranges and line colors
+-- Minimum y level drawn
+local drminy = -30
+-- Color of min y level
+local colminy = {r=0, g=0, b=255}
+-- Maximum y level drawn
+local drmaxy = 70
+-- Color of max y level
+local colmaxy = {r=255, g=0, b=0}
+
 
 datapath = (arg[1] or "").."/"
 
@@ -111,7 +122,7 @@ svgfile:write('viewBox="'..(-maxc)..' '..(-maxc)..' '..(2*maxc)..' '..(2*maxc)..
 
 
 svgfile:write([[
-<circle cx="0" cy="0" r="2" stroke="red" stroke-width="1" />
+<circle cx="0" cy="0" r="5" stroke="red" stroke-width="1" />
 ]])
 
 if wimg then
@@ -183,16 +194,58 @@ end
 
 plcnt = 0
 
+
+local function hexcolor(clr)
+	return "#"..advtrains.hex(clr.r)..advtrains.hex(clr.g)..advtrains.hex(clr.b)
+end
+
+local function cfactor(ry)
+	local y = ry - (ry%4)
+
+	local fac = (y-drminy)/(drmaxy-drminy)
+	return fac
+end
+
+local function pl_header(fac)
+	
+	local color = {
+		r = colminy.r + (colmaxy.r-colminy.r)*fac,
+		g = colminy.g + (colmaxy.g-colminy.g)*fac,
+		b = colminy.b + (colmaxy.b-colminy.b)*fac,
+	}
+	
+	local c = hexcolor(color)
+	return '<polyline style="fill:none;stroke:'..c..';stroke-width:1" points="'
+end
+
 local function polyline_write(pl)
-	local str = {'<polyline style="fill:none;stroke:black;stroke-width:1" points="'}
+	local p1y = cfactor(pl[1].y)
+	local str = {pl_header(p1y)}
 	
 	local i
 	local e
+	local lastcf = p1y
 	local lastldir = {x=0, y=0}
 	for i=1,#pl do
 		e = pl[i]
-		-- Note that we mirror y, so positive z is up
-		table.insert(str, e.x .. "," .. -(e.z) .. " ")
+		local cf = cfactor(e.y)
+		if cf ~= lastcf then
+			if lastcf <= 1 and lastcf >= 0 then
+				-- insert final point
+				-- Note that we mirror y, so positive z is up
+				table.insert(str, e.x .. "," .. -(e.z) .. " ")
+				table.insert(str, '" />\n')
+				plcnt = plcnt + 1
+			end
+			if cf <= 1 and cf >= 0 then
+				table.insert(str, pl_header(cf))
+			end
+		end
+		if cf <= 1 and cf >= 0 then
+			-- Note that we mirror y, so positive z is up
+			table.insert(str, e.x .. "," .. -(e.z) .. " ")
+		end
+		lastcf = cf
 	end
 	
 	table.insert(str, '" />\n')
