@@ -100,7 +100,7 @@ if type(tbl) ~= "table" then
 	error("not a table")
 end
 if tbl.version then
-	
+	advtrains.trains = tbl.trains
 	advtrains.ndb.load_data(tbl.ndb)
 	
 else
@@ -302,7 +302,23 @@ while stpos do
 	stpos, conns = advtrains.ndb.mapper_find_starting_point()
 end
 
+-- draw trains
+trains = 0
+for i,v in pairs(advtrains.trains) do
+	pos = v.last_pos
+	color = "green"
+	if v.velocity == 0 then
+		color = "orange"
+	end
+	svgfile:write("<circle cx=\""..pos.x.."\" cy=\""..-pos.z.."\" r=\"3\" stroke=\""..color.."\" stroke-width=\"1\" fill=\"none\" />")
+	if v.line then
+		svgfile:write(" <text x=\""..(pos.x+5).."\" y=\""..-pos.z.."\" class=\"trainline\">"..v.line.."</text>")
+	end
+	trains = trains+1
+end
+
 svgfile:write("</svg>")
 svgfile:close()
 
 print("\nWrote",plcnt,"polylines. Processed", ndb_nodes_handled, "track,",ndb_nodes_notrack, "non-track nodes out of", ndb_nodes_total)
+print("Drew "..trains.." trains")
