@@ -93,6 +93,32 @@ dofile("track_defs.lua")
 dofile("nodedb.lua")
 
 
+function parse_args(argv) 
+	local i = 1
+	local no_trains = false
+	local datapath, mappath
+	while i <= #argv do
+		local a = argv[i]
+		if (a == "-m") or (a == "--map-file") then
+			-- only draw trains – requires specifying an already drawn file
+			i = i+1
+			if not argv[i] then
+				error(("missing filename after `%s'"):format(a))
+			end
+			mappath = argv[i]
+		elseif (a == "-t") or (a == "--no-trains") then
+			-- do not draw trains
+			no_trains = true
+		else
+			datapath = a
+		end
+		i = i + 1
+	end
+	return datapath, mappath, no_trains
+end
+
+datapath, mappath, no_trains = parse_args(arg)
+
 -- Load saves
 local file, err = io.open(datapath.."advtrains", "r")
 local tbl = minetest.deserialize(file:read("*a"))
@@ -101,7 +127,9 @@ if type(tbl) ~= "table" then
 end
 if tbl.version then
 	advtrains.trains = tbl.trains
-	advtrains.ndb.load_data(tbl.ndb)
+	if not mappath then
+		advtrains.ndb.load_data(tbl.ndb)
+	end
 	
 else
 	error("Incompatible save format!")
@@ -112,7 +140,13 @@ file:close()
 
 local svgfile = io.open(datapath.."out.svg", "w")
 
-svgfile:write([[
+
+if mappath then
+	mapfile = io.open(mappath, "r")
+	cont = mapfile:read("*a"):sub(1, -7) -- remove </svg> end tag
+	svgfile:write(cont)
+else
+	svgfile:write([[
 <?xml version="1.0" standalone="no" ?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN"
   "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
@@ -120,13 +154,12 @@ svgfile:write([[
   xmlns:xlink="http://www.w3.org/1999/xlink" ]])
 
 
-svgfile:write('viewBox="'..(-maxc)..' '..(-maxc)..' '..(2*maxc)..' '..(2*maxc)..'" >')
+	svgfile:write('viewBox="'..(-maxc)..' '..(-maxc)..' '..(2*maxc)..' '..(2*maxc)..'" >')
 
-
-svgfile:write([[
+	svgfile:write([[
 <circle cx="0" cy="0" r="5" stroke="red" stroke-width="1" />
 ]])
-
+end
 if wimg then
 	local wimx = -(wimresx*wimscale/2)
 	local wimy = -(wimresy*wimscale/2)
@@ -272,53 +305,70 @@ local function polyline_write(pl)
 end
 
 
+	
+
 -- while there are entries in the nodedb
 -- 1. find a starting point
+if not mappath then
 	local stpos, conns = advtrains.ndb.mapper_find_starting_point()
-while stpos do
-	
-	writec("Restart at position "..pts(stpos))
-	for connid, conn in ipairs(conns) do
-		table.insert(bfs_rsp, {pos = stpos, connid = connid, conn = conn})
+	while stpos do
+		
+		writec("Restart at position "..pts(stpos))
+		for connid, conn in ipairs(conns) do
+			table.insert(bfs_rsp, {pos = stpos, connid = connid, conn = conn})
+		end
+		advtrains.ndb.clear(stpos)
+		
+		-- 2. while there are BFS entries
+		while #bfs_rsp > 0 do
+			-- make polylines
+			local current_rsp = bfs_rsp[#bfs_rsp]
+			bfs_rsp[#bfs_rsp] = nil
+			--print("Starting polyline at "..pts(current_rsp.pos).."/"..current_rsp.connid)
+			
+			
+			current_polyline = {}
+			
+			gen_rsp_polyline(current_rsp)
+			
+			polyline_write(current_polyline)
+			
+			io.write("Progress ", ndb_nodes_handled, "+", ndb_nodes_notrack, "/", ndb_nodes_total, "=", math.floor(((ndb_nodes_handled+ndb_nodes_notrack)/ndb_nodes_total)*100), "%\r")
+		end
+		stpos, conns = advtrains.ndb.mapper_find_starting_point()
 	end
-	advtrains.ndb.clear(stpos)
-	
-	-- 2. while there are BFS entries
-	while #bfs_rsp > 0 do
-		-- make polylines
-		local current_rsp = bfs_rsp[#bfs_rsp]
-		bfs_rsp[#bfs_rsp] = nil
-		--print("Starting polyline at "..pts(current_rsp.pos).."/"..current_rsp.connid)
-		
-		
-		current_polyline = {}
-		
-		gen_rsp_polyline(current_rsp)
-		
-		polyline_write(current_polyline)
-		
-		io.write("Progress ", ndb_nodes_handled, "+", ndb_nodes_notrack, "/", ndb_nodes_total, "=", math.floor(((ndb_nodes_handled+ndb_nodes_notrack)/ndb_nodes_total)*100), "%\r")
-	end
-	stpos, conns = advtrains.ndb.mapper_find_starting_point()
 end
-
 -- draw trains
 trains = 0
-for i,v in pairs(advtrains.trains) do
-	pos = v.last_pos
-	color = "green"
-	if v.velocity == 0 then
-		color = "orange"
+stopped = 0
+lines = {}
+running = {}
+if not no_trains then
+	for i,v in pairs(advtrains.trains) do
+		pos = v.last_pos
+		color = "green"
+		if v.velocity == 0 then
+			color = "orange"
+			stopped = stopped + 1
+		end
+		svgfile:write("<circle cx=\""..pos.x.."\" cy=\""..-pos.z.."\" r=\"3\" stroke=\""..color.."\" stroke-width=\"1\" fill=\"none\" />")
+		if v.line then
+			lines[v.line] = (lines[v.line] or 0) + 1
+			if v.velocity ~= 0 then
+				running[v.line] = (running[v.line] or 0) + 1
+			end
+			svgfile:write(" <text x=\""..(pos.x+5).."\" y=\""..-pos.z.."\" class=\"trainline\">"..v.line.."</text>")
+		end
+		trains = trains+1
 	end
-	svgfile:write("<circle cx=\""..pos.x.."\" cy=\""..-pos.z.."\" r=\"3\" stroke=\""..color.."\" stroke-width=\"1\" fill=\"none\" />")
-	if v.line then
-		svgfile:write(" <text x=\""..(pos.x+5).."\" y=\""..-pos.z.."\" class=\"trainline\">"..v.line.."</text>")
-	end
-	trains = trains+1
 end
 
 svgfile:write("</svg>")
 svgfile:close()
 
 print("\nWrote",plcnt,"polylines. Processed", ndb_nodes_handled, "track,",ndb_nodes_notrack, "non-track nodes out of", ndb_nodes_total)
-print("Drew "..trains.." trains")
+print("Drew "..trains.." trains. "..stopped.." stopped trains.")
+print("\n Number of trains moving/total:")
+for i,v in pairs(lines) do
+	print(i..":            "..(running[i] or 0).."/"..v)
+end
