@@ -96,7 +96,7 @@ dofile("nodedb.lua")
 function parse_args(argv) 
 	local i = 1
 	local no_trains = false
-	local datapath, mappath
+	local datapath, mappath, worldimage
 	while i <= #argv do
 		local a = argv[i]
 		if (a == "-m") or (a == "--map-file") then
@@ -109,15 +109,23 @@ function parse_args(argv)
 		elseif (a == "-t") or (a == "--no-trains") then
 			-- do not draw trains
 			no_trains = true
+		elseif (a == "-w") or (a == "--world-image") then
+			-- overlay over world image
+			i = i+1
+			if not argv[i] then
+				error(("missing filename after `%s'"):format(a))
+			end
+			worldimage = argv[i]
 		else
 			datapath = a
 		end
+		
 		i = i + 1
 	end
-	return datapath, mappath, no_trains
+	return datapath, mappath, no_trains, worldimage
 end
 
-datapath, mappath, no_trains = parse_args(arg)
+datapath, mappath, no_trains, worldimage = parse_args(arg)
 
 -- Load saves
 local file, err = io.open(datapath.."advtrains", "r")
@@ -160,13 +168,13 @@ else
 <circle cx="0" cy="0" r="5" stroke="red" stroke-width="1" />
 ]])
 end
-if wimg then
+if worldimage then
 	local wimx = -(wimresx*wimscale/2)
 	local wimy = -(wimresy*wimscale/2)
 	local wimw = wimresx*wimscale
 	local wimh = wimresy*wimscale
 	
-	svgfile:write('<image xlink:href="world.png" x="'..wimx..'" y="'..wimy..'" height="'..wimh..'px" width="'..wimw..'px"/>')
+	svgfile:write('<image xlink:href="'..worldimage..'" x="'..wimx..'" y="'..wimy..'" height="'..wimh..'px" width="'..wimw..'px"/>')
 end
 
 local function writec(text)
