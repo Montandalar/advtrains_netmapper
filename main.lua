@@ -128,20 +128,21 @@ end
 datapath, mappath, no_trains, worldimage = parse_args(arg)
 
 -- Load saves
-local file, err = io.open(datapath.."advtrains", "r")
+local file, err = io.open(datapath.."advtrains_trains", "r")
 local tbl = minetest.deserialize(file:read("*a"))
 if type(tbl) ~= "table" then
-	error("not a table")
+	error("Trains file: not a table")
 end
-if tbl.version then
-	advtrains.trains = tbl.trains
-	if not mappath then
-		advtrains.ndb.load_data(tbl.ndb)
-	end
-	
-else
-	error("Incompatible save format!")
+advtrains.trains = tbl
+file:close()
+
+--ndb contains the defs, while ndb2 is the actual contents
+file, err = io.open(datapath.."advtrains_ndb", "r")
+tbl = minetest.deserialize(file:read("*a"))
+if type(tbl) ~= "table" then
+	error("Node database file: not a table")
 end
+advtrains.ndb.load_data(tbl)
 file:close()
 
 -- open svg file
