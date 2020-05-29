@@ -2,15 +2,15 @@
 -- Usage: lua main.lua path/to/world
 
 -- Viewport maximum coordinate in all directions
-local maxc = 5000
+local maxc = 7008
 
 -- embed an image called "world.png"
 local wimg = false
 -- image file resolution (not world resolution!)
-local wimresx = 3000
-local wimresy = 3000
+local wimresx = 14016
+local wimresy = 14016
 -- one pixel is ... nodes
-local wimscale = 4
+local wimscale = 1
 
 -- y ranges and line colors
 -- Minimum y level drawn
@@ -145,6 +145,14 @@ end
 advtrains.ndb.load_data(tbl)
 file:close()
 
+file, err = io.open(datapath.."advtrains_lines", "r")
+tbl = minetest.deserialize(file:read("*a"))
+if type(tbl) ~= "table" then
+	error("Lines file: not a table")
+end
+advtrains.lines = tbl
+file:close()
+
 -- open svg file
 
 local svgfile = io.open(datapath.."out.svg", "w")
@@ -242,7 +250,7 @@ plcnt = 0
 
 
 local function hexcolor(clr)
-	return "#"..advtrains.hex(clr.r)..advtrains.hex(clr.g)..advtrains.hex(clr.b)
+	return "#"..advtrains.hex8(clr.r)..advtrains.hex8(clr.g)..advtrains.hex8(clr.b)
 end
 
 local function cfactor(ry)
@@ -314,8 +322,6 @@ local function polyline_write(pl)
 end
 
 
-	
-
 -- while there are entries in the nodedb
 -- 1. find a starting point
 if not mappath then
@@ -369,6 +375,20 @@ if not no_trains then
 			svgfile:write(" <text x=\""..(pos.x+5).."\" y=\""..-pos.z.."\" class=\"trainline\">"..v.line.."</text>")
 		end
 		trains = trains+1
+	end
+	-- draw station stops
+	totalStops = 0
+	stopPos = vector.new()
+	for encodedPos, stopInfo in pairs(advtrains.lines.stops) do
+		stopPos = advtrains.decode_pos(encodedPos)
+		--io.write(string.format("Stop at (%d, %d, %d) at Station %s", stopPos.x, stopPos.y, stopPos.z, stopInfo.stn or ""))
+		svgfile:write(string.format('<circle cx="%d" cy="%d" r="3" stroke="cyan" stroke-width="2" fill="black" />\n',
+			                         stopPos.x, -stopPos.z))
+		if (advtrains.lines.stations[stopInfo.stn] ~= nil) then
+			svgfile:write(string.format('<text x="%d" y="%d" transform="rotate(45,%d, %d)" class="stop">%s</text>\n',
+			                             stopPos.x, -stopPos.z, stopPos.x, -stopPos.z,
+			                             advtrains.lines.stations[stopInfo.stn].name))
+		end
 	end
 end
 

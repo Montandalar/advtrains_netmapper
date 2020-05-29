@@ -355,7 +355,7 @@ local dect = { ["0"]=0,["1"]=1,["2"]=2,["3"]=3,["4"]=4,["5"]=5,["6"]=6,["7"]=7,[
 
 
 -- Hex functions changed for 8bit
-function advtrains.hex(i)
+function advtrains.hex8(i)
 	local x=math.floor(i)
 	local c2 = x % 16
 	x = math.floor(x / 16)
@@ -365,6 +365,27 @@ end
 
 local function c(s,i) return dect[string.sub(s,i,i)] end
 
-function advtrains.dec(s)
+function advtrains.dec8(s)
 	return (c(s,1)*16 + c(s,2))
 end
+
+
+local function dec(s)
+	return (c(s,1)*4096 + c(s,2)*256 + c(s,3)*16 + c(s,4))-32768
+end
+-- Takes a position vector and outputs a encoded value suitable as table index
+-- This is essentially a hexadecimal representation of the position (+32768)
+-- Order (YYY)YXXXXZZZZ
+function advtrains.encode_pos(pos)
+	return hex(pos.y) .. hex(pos.x) .. hex(pos.z)
+end
+
+-- decodes a position encoded with encode_pos
+function advtrains.decode_pos(pts)
+	if not pts or not #pts==6 then return nil end
+	local stry = string.sub(pts, 1,4)
+	local strx = string.sub(pts, 5,8)
+	local strz = string.sub(pts, 9,12)
+	return vector.new(dec(strx), dec(stry), dec(strz))
+end
+
