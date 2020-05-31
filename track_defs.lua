@@ -148,5 +148,55 @@ advtrains.register_tracks("default", {
 		end
 	}, advtrains.ap.t_30deg_straightonly_noplacer)
 	
-	
+
+-- Linetrack watertrack
+advtrains.register_tracks("waterline", {
+	nodename_prefix="linetrack:watertrack",
+	texture_prefix="advtrains_ltrack",
+	models_prefix="advtrains_ltrack",
+	models_suffix=".obj",
+	shared_texture="linetrack_line.png",
+	description=attrans("Water Line Track"),
+	formats={},
+	liquids_pointable=true,
+	suitable_substrate=suitable_substrate,
+	get_additional_definiton = function(def, preset, suffix, rotation)
+		return {
+			groups = {
+				advtrains_track=1,
+				advtrains_track_waterline=1,
+				save_in_at_nodedb=1,
+				dig_immediate=2,
+				not_in_creative_inventory=1,
+				not_blocking_trains=1,
+			},
+			use_texture_alpha = true,
+		}
+	end
+}, advtrains.ap.t_30deg_flat)
+--slopes
+advtrains.register_tracks("waterline", {
+	nodename_prefix="linetrack:watertrack",
+	texture_prefix="advtrains_ltrack",
+	models_prefix="advtrains_ltrack",
+	models_suffix=".obj",
+	shared_texture="linetrack_line.png",
+	description=attrans("Line Track"),
+	formats={vst1={true, false, true}, vst2={true, false, true}, vst31={true}, vst32={true}, vst33={true}},
+	liquids_pointable=true,
+	suitable_substrate=suitable_substrate,
+	get_additional_definiton = function(def, preset, suffix, rotation)
+		return {
+			groups = {
+				advtrains_track=1,
+				advtrains_track_waterline=1,
+				save_in_at_nodedb=1,
+				dig_immediate=2,
+				not_in_creative_inventory=1,
+				not_blocking_trains=1,
+			},
+			use_texture_alpha = true,
+		}
+	end
+}, advtrains.ap.t_30deg_slope)
 --== END insert track defs ==--
