@@ -44,7 +44,7 @@ end
 local hypot = 1.2
 local hypotsq = hypot*hypot
 function tcb_do_pos(pos)
-	local x,y,z = pos:match("(%d+),(%d+),(%d+)")
+	local x,y,z = pos:match("(-?%d+),(-?%d+),(-?%d+)")
 	x = tonumber(x)
 	y = tonumber(y)
 	z = tonumber(z)
@@ -58,6 +58,7 @@ function tcb_do_pos(pos)
 	--debugprint("get_rail_info_at:", good, core.serialize(conns), railheight)
 
 	if (not conns) then
+		print("Invalid pos in database: "..tostring(pos))
 		return false -- Various other garbage will appear for whatever reason.
 	end
 	local medianAngle = advtrains.conn_angle_median(conns[1].c, conns[2].c)
