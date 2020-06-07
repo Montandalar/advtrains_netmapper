@@ -145,12 +145,21 @@ end
 advtrains.ndb.load_data(tbl)
 file:close()
 
+-- 'lines' file contains station/stop info
 file, err = io.open(datapath.."advtrains_lines", "r")
 tbl = minetest.deserialize(file:read("*a"))
 if type(tbl) ~= "table" then
 	error("Lines file: not a table")
 end
 advtrains.lines = tbl
+file:close()
+
+file, err = io.open(datapath.."advtrains_interlocking_tcbs", "r")
+tbl = minetest.deserialize(file:read("*a"))
+if type(tbl) ~= "table" then
+	error("TCBs file: not a table")
+end
+advtrains.track_circuit_breaks = tbl
 file:close()
 
 -- open svg file
@@ -191,6 +200,10 @@ local function writec(text)
 	svgfile:write("<!-- " .. text .. " -->\n")
 end
 
+-- Calculate how TCBs will be drawn, but draw them after the rails
+-- so the TCBs are on top. The nodedb will emptied when the rails are drawn, so
+-- the TCBs are calculated first.
+tcb_svg_data = require("tcbs")
 
 -- everything set up. Start generating an SVG
 -- All nodes that have been fit into a polyline are removed from the NDB, in order to not draw them again.
@@ -282,7 +295,7 @@ local function pl_header(fac)
 end
 
 local function polyline_write(pl)
-	local p1y = cfactor(pl[1].y)
+	local p1y = cfactor(pl[1].y) --colour factor
 	local str = {}
 	
 	if p1y <= 1 and p1y >= 0 then
@@ -376,21 +389,25 @@ if not no_trains then
 		end
 		trains = trains+1
 	end
-	-- draw station stops
-	totalStops = 0
-	stopPos = vector.new()
-	for encodedPos, stopInfo in pairs(advtrains.lines.stops) do
-		stopPos = advtrains.decode_pos(encodedPos)
-		--io.write(string.format("Stop at (%d, %d, %d) at Station %s", stopPos.x, stopPos.y, stopPos.z, stopInfo.stn or ""))
-		svgfile:write(string.format('<circle cx="%d" cy="%d" r="3" stroke="cyan" stroke-width="2" fill="black" />\n',
-			                         stopPos.x, -stopPos.z))
-		if (advtrains.lines.stations[stopInfo.stn] ~= nil) then
-			svgfile:write(string.format('<text x="%d" y="%d" transform="rotate(45,%d, %d)" class="stop">%s</text>\n',
-			                             stopPos.x, -stopPos.z, stopPos.x, -stopPos.z,
-			                             advtrains.lines.stations[stopInfo.stn].name))
-		end
+end
+
+-- draw station stops
+totalStops = 0
+stopPos = vector.new()
+for encodedPos, stopInfo in pairs(advtrains.lines.stops) do
+	stopPos = advtrains.decode_pos(encodedPos)
+	--io.write(string.format("Stop at (%d, %d, %d) at Station %s", stopPos.x, stopPos.y, stopPos.z, stopInfo.stn or ""))
+	svgfile:write(string.format('<circle cx="%d" cy="%d" r="3" stroke="cyan" stroke-width="2" fill="black" />\n',
+		                         stopPos.x, -stopPos.z))
+	if (advtrains.lines.stations[stopInfo.stn] ~= nil) then
+		svgfile:write(string.format('<text x="%d" y="%d" transform="rotate(45,%d, %d)" class="stop">%s</text>\n',
+		                             stopPos.x, -stopPos.z, stopPos.x, -stopPos.z,
+		                             advtrains.lines.stations[stopInfo.stn].name))
 	end
 end
+
+-- Draw TCBs on top of tracks
+svgfile:write(table.concat(tcb_svg_data, "\n"))
 
 svgfile:write("</svg>")
 svgfile:close()
