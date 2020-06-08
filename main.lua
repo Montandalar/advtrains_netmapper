@@ -399,10 +399,16 @@ for encodedPos, stopInfo in pairs(advtrains.lines.stops) do
 	--io.write(string.format("Stop at (%d, %d, %d) at Station %s", stopPos.x, stopPos.y, stopPos.z, stopInfo.stn or ""))
 	svgfile:write(string.format('<circle cx="%d" cy="%d" r="3" stroke="cyan" stroke-width="2" fill="black" />\n',
 		                         stopPos.x, -stopPos.z))
+	local stnInfo = advtrains.lines.stations[stopInfo.stn]
+	local trackText = stopInfo.track
+	if trackText ~= "" then
+		trackText = "T. " .. trackText
+	end
 	if (advtrains.lines.stations[stopInfo.stn] ~= nil) then
-		svgfile:write(string.format('<text x="%d" y="%d" transform="rotate(45,%d, %d)" class="stop">%s</text>\n',
+		svgfile:write(string.format('<text x="%d" y="%d" transform="rotate(45,%d, %d)" class="stop">%s %s</text>\n',
 		                             stopPos.x, -stopPos.z, stopPos.x, -stopPos.z,
-		                             advtrains.lines.stations[stopInfo.stn].name))
+		                             advtrains.lines.stations[stopInfo.stn].name,
+		                             trackText))
 	end
 end
 
