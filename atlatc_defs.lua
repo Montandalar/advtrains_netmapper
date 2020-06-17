@@ -249,28 +249,6 @@ register_atlatc_env("Crossroads", {
 	}
 })
 
---[[Environment	Station Function
-durt	F.station(string code, string direction)
-subway	F.stn(string prev, string this, string next, string doors) --ordinary station (origin U2)
-subway	F.stn_ilk(string prev, string this, string next) --interlocked station (origin U1/4), previous station was station/stop track
-subway	F.stn_return(string prev, string this, string next, string doors, string switchpos, string switchdir)
-Crossroads	F.stnbasic(stn, side, optime, reverse, acc, out, reventry, predepart, postdepart, next,track)
-Crossroads	F.hst(cur, nxt, side, spd, out, trk)
-Crossroads	F.bhf(cur, nxt, side, spd, out, trk)
-Crossroads	F.kbhf(cur, nxt, side, spd, out, trk)
-Crossroads	F.timing(d_off, d_int, cur, nxt, side, spd, out, trk, term, pre, post)
-Crossroads	F.stn2gen(stn, trk, door, ret, chout)
-Note: 'Crossroads' environment also manages ATL
-Note: OTL is interlocking and station tracks only
-
--- Register a lua environment
--- Register an array of station codes to env, where key is the station code and value is the name
--- Register pattern matches for station codes, where key is not important and value is the pattern string, where pattern matching returns the code for lookup
--- env must exist in the data files
-register_atlatc_station_names(env, stations)
-register_atlatc_stops(env, patterns)
---]]
-
 local function atlatc_nameat(posData)
 	-- If the pos does not exist as an atlatc rail, quit
 	if not (posData.arrowconn and posData.env) then return end
@@ -300,6 +278,7 @@ function atlatc_parse_database(activeNodeData)
 		z = tonumber(z)
 		local name = atlatc_nameat(posData)
 		if (x and y and z and name ~= nil) then
+			name = htmlspecialchars(name)
 			table.insert(atlatc_station_names, formatStrCircle:format(x, -z))
 			table.insert(atlatc_station_names, formatStrText:format(x, -z, x, -z, name))
 		end

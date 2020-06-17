@@ -389,3 +389,11 @@ function advtrains.decode_pos(pts)
 	return vector.new(dec(strx), dec(stry), dec(strz))
 end
 
+function htmlspecialchars(s)
+	s = s:gsub("&", "&amp;")
+	s = s:gsub('"', "&quot;")
+	s = s:gsub("'", "&apos;")
+	s = s:gsub("<", "&lt;")
+	s = s:gsub(">", "&gt;")
+	return s
+end

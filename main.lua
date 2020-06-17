@@ -418,8 +418,8 @@ for encodedPos, stopInfo in pairs(advtrains.lines.stops) do
 	if (advtrains.lines.stations[stopInfo.stn] ~= nil) then
 		svgfile:write(string.format('<text x="%d" y="%d" transform="rotate(45,%d, %d)" class="stop">%s %s</text>\n',
 		                             stopPos.x, -stopPos.z, stopPos.x, -stopPos.z,
-		                             advtrains.lines.stations[stopInfo.stn].name,
-		                             trackText))
+		                             htmlspecialchars(advtrains.lines.stations[stopInfo.stn].name),
+		                             htmlspecialchars(trackText)))
 	end
 end
 
