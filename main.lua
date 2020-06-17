@@ -89,6 +89,7 @@ dofile("serialize.lua")
 dofile("helpers.lua")
 dofile("tracks.lua")
 dofile("track_defs.lua")
+atlatc_parse_database = require("atlatc_defs")
 
 dofile("nodedb.lua")
 
@@ -154,12 +155,22 @@ end
 advtrains.lines = tbl
 file:close()
 
+-- tcb file
 file, err = io.open(datapath.."advtrains_interlocking_tcbs", "r")
 tbl = minetest.deserialize(file:read("*a"))
 if type(tbl) ~= "table" then
 	error("TCBs file: not a table")
 end
 advtrains.track_circuit_breaks = tbl
+file:close()
+
+-- atlatc file, for scraping stations
+file, err = io.open(datapath.."advtrains_luaautomation", "r")
+tbl = minetest.deserialize(file:read("*a"))
+if type(tbl) ~= "table" then
+	error("atlatc file: not a table")
+end
+advtrains.luaautomation = tbl
 file:close()
 
 -- open svg file
@@ -411,6 +422,9 @@ for encodedPos, stopInfo in pairs(advtrains.lines.stops) do
 		                             trackText))
 	end
 end
+
+-- draw LuaATC stops
+svgfile:write(table.concat(atlatc_parse_database(advtrains.luaautomation.active.nodes)))
 
 -- Draw TCBs on top of tracks
 svgfile:write(table.concat(tcb_svg_data, "\n"))
