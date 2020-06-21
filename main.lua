@@ -128,55 +128,23 @@ end
 
 datapath, mappath, no_trains, worldimage = parse_args(arg)
 
--- Load saves
-local file, err = io.open(datapath.."advtrains_trains", "r")
-local tbl = minetest.deserialize(file:read("*a"))
-if type(tbl) ~= "table" then
-	error("Trains file: not a table")
+local function loadtable(filename, nicename)
+	local file, err = io.open(filename, "r")
+	local tbl = minetest.deserialize(file:read("*a"))
+	if type(tbl) ~= "table" then
+		error(nicename .. " file: not a table")
+	end
+	file:close()
+	return tbl
 end
-advtrains.trains = tbl
-file:close()
 
---ndb contains the defs, while ndb2 is the actual contents
-file, err = io.open(datapath.."advtrains_ndb", "r")
-tbl = minetest.deserialize(file:read("*a"))
-if type(tbl) ~= "table" then
-	error("Node database file: not a table")
-end
-advtrains.ndb.load_data(tbl)
-file:close()
-
--- 'lines' file contains station/stop info
-file, err = io.open(datapath.."advtrains_lines", "r")
-tbl = minetest.deserialize(file:read("*a"))
-if type(tbl) ~= "table" then
-	error("Lines file: not a table")
-end
-advtrains.lines = tbl
-file:close()
-
--- tcb file
-file, err = io.open(datapath.."advtrains_interlocking_tcbs", "r")
-tbl = minetest.deserialize(file:read("*a"))
-if type(tbl) ~= "table" then
-	error("TCBs file: not a table")
-end
-advtrains.track_circuit_breaks = tbl
-file:close()
-
--- atlatc file, for scraping stations
-file, err = io.open(datapath.."advtrains_luaautomation", "r")
-tbl = minetest.deserialize(file:read("*a"))
-if type(tbl) ~= "table" then
-	error("atlatc file: not a table")
-end
-advtrains.luaautomation = tbl
-file:close()
-
--- open svg file
+advtrains.trains = loadtable(datapath.."advtrains_trains", "Trains")
+advtrains.ndb.load_data(loadtable(datapath.."advtrains_ndb", "Node database"))
+advtrains.lines = loadtable(datapath.."advtrains_lines", "Lines")
+advtrains.track_circuit_breaks = loadtable(datapath.."advtrains_interlocking_tcbs")
+advtrains.luaautomation = loadtable(datapath.."advtrains_luaautomation")
 
 local svgfile = io.open(datapath.."out.svg", "w")
-
 
 if mappath then
 	mapfile = io.open(mappath, "r")
