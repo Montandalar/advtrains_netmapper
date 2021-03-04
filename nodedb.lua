@@ -53,32 +53,56 @@ local function ndbset(x,y,z,v)
 end
 
 
-local path="advtrains_ndb2"
---load
---nodeids get loaded by advtrains init.lua and passed here
-function ndb.load_data(data)
-	ndb_nodeids = data and data.nodeids or {}
-	local file, err = io.open(datapath..path, "rb")
-	if not file then
-		print("Couldn't load the node database: ", err or "Unknown Error")
-	else
-		local cnt=0
-		local hst_z=file:read(2)
-		local hst_y=file:read(2)
-		local hst_x=file:read(2)
-		local cid=file:read(2)
-		while hst_z and hst_y and hst_x and cid and #hst_z==2 and #hst_y==2 and #hst_x==2 and #cid==2 do
-			ndbset(bytes_to_int(hst_x), bytes_to_int(hst_y), bytes_to_int(hst_z), bytes_to_int(cid))
-			cnt=cnt+1
-			hst_z=file:read(2)
-			hst_y=file:read(2)
-			hst_x=file:read(2)
-			cid=file:read(2)
-		end
-		print("nodedb: read", cnt, "nodes.")
-		ndb_nodes_total = cnt
+function ndb.load_callback(file)
+	-- read version
+	local vers_byte = file:read(1)
+	local version = string.byte(vers_byte)
+	if version~=1 then
 		file:close()
+		error("Doesn't support v4 nodedb file of version "..version)
 	end
+
+	-- read cid mappings
+	local nstr_byte = file:read(2)
+	local nstr = bytes_to_int(nstr_byte)
+	for i = 1,nstr do
+		local stid_byte = file:read(2)
+		local stid = bytes_to_int(stid_byte)
+		local stna = file:read("*l")
+		--atdebug("content id:", stid, "->", stna)
+		ndb_nodeids[stid] = stna
+	end
+	atlog("[nodedb] read", nstr, "node content ids.")
+	dbg()
+
+	-- read nodes
+	local cnt=0
+	local hst_x=file:read(2)
+	local hst_y=file:read(2)
+	local hst_z=file:read(2)
+	local cid=file:read(2)
+	local cidi
+	while hst_z and hst_y and hst_x and cid and #hst_z==2 and #hst_y==2 and #hst_x==2 and #cid==2 do
+		cidi = bytes_to_int(cid)
+		-- prevent file corruption already here
+		if not ndb_nodeids[u14b(cidi)] then
+			-- clear the ndb data, to reinitialize it
+			-- in strict loading mode, doesn't matter as starting will be interrupted anyway
+			ndb_nodeids = {}
+			ndb_nodes = {}
+			error("NDB file is corrupted (found entry with invalid cid)")
+		end
+		ndbset(bytes_to_int(hst_x), bytes_to_int(hst_y), bytes_to_int(hst_z), cidi)
+		cnt=cnt+1
+		hst_x=file:read(2)
+		hst_y=file:read(2)
+		hst_z=file:read(2)
+		cid=file:read(2)
+	end
+	dbg()
+	atlog("[nodedb] read", cnt, "nodes.")
+	ndb_nodes_total = cnt -- global passed back to netmapper for statistics
+	file:close()
 end
 
 --function to get node. track database is not helpful here.

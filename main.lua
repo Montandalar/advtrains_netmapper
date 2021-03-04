@@ -1,3 +1,4 @@
+dbg = require('debugger')
 -- advtrains track map generator
 -- Usage: lua main.lua path/to/world
 
@@ -48,6 +49,15 @@ function attrans(str) return str end
 local function pts(pos)
 	return pos.x .. "," .. pos.y .. "," .. pos.z
 end
+
+-- Handle logs from copied advtrains code
+function atlog(...)
+	for k,v in pairs({...}) do
+		io.write(v) io.write(' ')
+	end
+	io.write("\n")
+end
+
 
 --Advtrains dump (special treatment of pos and sigd)
 function atdump(t, intend)
@@ -128,8 +138,14 @@ end
 
 datapath, mappath, no_trains, worldimage = parse_args(arg)
 
+ser_lib = dofile("serialize_lib.lua")
+
 local function loadtable(filename, nicename)
 	local file, err = io.open(filename, "r")
+	if not file then
+		error("'"..filename .. "' could not be opened. Does it exist?"
+				.. "\nMake sure you include all slashes in the world path.")
+	end
 	local tbl = minetest.deserialize(file:read("*a"))
 	if type(tbl) ~= "table" then
 		error(nicename .. " file: not a table")
@@ -138,11 +154,29 @@ local function loadtable(filename, nicename)
 	return tbl
 end
 
-advtrains.trains = loadtable(datapath.."advtrains_trains", "Trains")
-advtrains.ndb.load_data(loadtable(datapath.."advtrains_ndb", "Node database"))
-advtrains.lines = loadtable(datapath.."advtrains_lines", "Lines")
-advtrains.track_circuit_breaks = loadtable(datapath.."advtrains_interlocking_tcbs")
-advtrains.luaautomation = loadtable(datapath.."advtrains_luaautomation")
+atcore = ser_lib.read_from_file(datapath.."advtrains_core.ls")
+advtrains = advtrains.merge_tables(advtrains, atcore)
+--advtrains.trains = loadtable(datapath.."advtrains_trains", "Trains")
+
+repeat --new local scope
+	local f, err = io.open(datapath.."advtrains_ndb4.ls", "r")
+	if not f then
+		error('The node database could not be found. Does it exist?')
+	end
+	advtrains.ndb.load_callback(f, "r")
+until true
+--advtrains.ndb.load_data(loadtable(datapath.."advtrains_ndb", "Node database"))
+
+advtrains.lines = ser_lib.read_from_file(datapath.."advtrains_lines.ls")
+-- advtrains.lines = loadtable(datapath.."advtrains_lines", "Lines")
+
+advtrains.interlocking =
+	ser_lib.read_from_file(datapath.."advtrains_interlocking.ls")
+advtrains.track_circuit_breaks = advtrains.interlocking.tcbs
+--advtrains.track_circuit_breaks = loadtable(datapath.."advtrains_interlocking_tcbs")
+
+--advtrains.luaautomation = loadtable(datapath.."advtrains_luaautomation")
+advtrains.luaautomation = ser_lib.read_from_file(datapath.."advtrains_atlatc.ls")
 
 local svgfile = io.open(datapath.."out.svg", "w")
 
